@@ -1,0 +1,399 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>U2 Song Generator — Based on Your Birthday</title>
+  <style>
+    :root{
+      --bg:#0b1220;
+      --card:#0f1724;
+      --accent:#ff6b6b;
+      --muted:#9aa7b2;
+      --glass: rgba(255,255,255,0.03);
+      --radius:16px;
+      font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+      color-scheme: dark;
+    }
+    html,body{height:100%}
+    body{
+      margin:0;
+      background:
+        radial-gradient(1000px 500px at 10% 10%, rgba(255,107,107,0.06), transparent 8%),
+        linear-gradient(180deg,#061018 0%, #071426 60%);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:24px;
+      color:#e6eef6;
+    }
+
+    .card{
+      width:min(880px,96vw);
+      background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      border-radius:var(--radius);
+      box-shadow: 0 8px 30px rgba(2,6,23,0.6);
+      padding:26px;
+      display:grid;
+      grid-template-columns: 1fr 360px;
+      gap:20px;
+      align-items:start;
+    }
+
+    h1{margin:0 0 6px 0;font-size:20px;letter-spacing:0.2px}
+    p.lead{margin:0 0 18px 0;color:var(--muted);font-size:14px}
+
+    label{display:block;font-size:13px;margin-bottom:6px;color:var(--muted)}
+    input[type="date"], input[type="text"], select{
+      width:100%;
+      padding:10px 12px;
+      border-radius:10px;
+      border:1px solid rgba(255,255,255,0.04);
+      background:var(--glass);
+      color:inherit;
+      outline:none;
+      box-sizing:border-box;
+    }
+
+    .controls{display:flex;flex-direction:column;gap:12px}
+    .btn{
+      padding:10px 12px;
+      border-radius:10px;
+      border:0;
+      background:linear-gradient(90deg,var(--accent), #ff8b8b);
+      color:#08121a;
+      font-weight:600;
+      cursor:pointer;
+      box-shadow: 0 6px 18px rgba(255,107,107,0.12);
+    }
+    .btn.secondary{
+      background:transparent;
+      color:var(--muted);
+      border:1px solid rgba(255,255,255,0.03);
+      box-shadow:none;
+    }
+
+    .result{
+      padding:18px;
+      border-radius:12px;
+      background:rgba(255,255,255,0.02);
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      align-items:flex-start;
+    }
+    .song-title{font-size:20px;margin:0;font-weight:700}
+    .song-meta{margin:0;color:var(--muted);font-size:13px}
+    .big-seed{font-family:monospace;color:var(--muted);font-size:13px;margin-top:6px}
+
+    .right{
+      padding-left:6px;
+      border-left:1px solid rgba(255,255,255,0.02);
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+    }
+
+    .history{display:flex;flex-direction:column;gap:8px}
+    .chip{
+      padding:8px 10px;border-radius:999px;background:rgba(255,255,255,0.02);
+      font-size:13px;color:var(--muted);cursor:pointer;border:1px solid rgba(255,255,255,0.01);
+    }
+
+    footer{color:var(--muted);font-size:12px;margin-top:12px}
+
+    @media (max-width:880px){
+      .card{grid-template-columns:1fr; padding:18px}
+      .right{border-left:none;padding-left:0}
+    }
+  </style>
+</head>
+<body>
+  <main class="card" role="main" aria-labelledby="app-title">
+    <section>
+      <h1 id="app-title">U2 Song Generator — Based on your birthday (or anything)</h1>
+      <p class="lead">Enter a date (your birthday) or type any text. The app will use that input as a seed and pick a U2 song deterministically — same input → same song. Click "Surprise me" to use a random seed.</p>
+
+      <div class="controls" aria-live="polite">
+        <div>
+          <label for="date-input">Use a date (birthday)</label>
+          <input id="date-input" type="date" aria-label="Enter a date (birthday)">
+        </div>
+
+        <div>
+          <label for="text-input">Or type anything (name, phrase, "something like that")</label>
+          <input id="text-input" type="text" placeholder="e.g. 1984-03-11, 'my birthday', 'spring 1997'">
+        </div>
+
+        <div style="display:flex;gap:8px">
+          <button id="generate" class="btn" title="Generate song from input">Generate song</button>
+          <button id="surprise" class="btn secondary" title="Use a random seed">Surprise me</button>
+        </div>
+
+        <div style="display:flex;gap:8px">
+          <button id="copy" class="btn secondary" title="Copy song title to clipboard">Copy song</button>
+          <button id="play" class="btn" title="Search the song on YouTube">Open YouTube</button>
+        </div>
+
+        <div style="display:flex;gap:8px;margin-top:6px">
+          <label style="margin-right:8px;align-self:center">Pick album era (optional)</label>
+          <select id="era">
+            <option value="any">Any era</option>
+            <option value="70s80s">1979–1989 (Boy/War/Rattle)</option>
+            <option value="90s">1990–1999 (Achtung Baby/Pop)</option>
+            <option value="00s">2000–2009 (All That You Can't Leave Behind / How to Dismantle)</option>
+            <option value="10s">2010–2019 (No Line on the Horizon / Songs of Experience)</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="result" class="result" aria-live="polite" style="margin-top:18px">
+        <div style="min-height:72px">
+          <p class="song-title" id="song-title">Your song will appear here</p>
+          <p class="song-meta" id="song-meta">Seed: — · Index: —</p>
+          <div class="big-seed" id="big-seed" aria-hidden="true"></div>
+        </div>
+
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <a id="youtube-link" class="chip" href="#" target="_blank" rel="noopener">Open YouTube search</a>
+          <button id="another" class="chip">Pick another (same seed)</button>
+        </div>
+
+        <footer>Deterministic selection — same input returns the same song. The "Pick another" button will re-roll with the same seed but different internal PRNG step.</footer>
+      </div>
+    </section>
+
+    <aside class="right" aria-labelledby="history-title">
+      <h2 id="history-title" style="margin:0;font-size:14px">Recent picks</h2>
+      <div class="history" id="history"></div>
+
+      <div style="margin-top:8px">
+        <label style="display:block;margin-bottom:6px;color:var(--muted)">Seed preview</label>
+        <pre id="seed-preview" style="padding:10px;border-radius:8px;background:rgba(255,255,255,0.02);color:var(--muted);font-family:monospace;font-size:13px;margin:0">—</pre>
+      </div>
+    </aside>
+  </main>
+
+  <script>
+    // --- U2 songs library (representative selection) ---
+    const u2Songs = [
+      { title: "Sunday Bloody Sunday", era: "70s80s" },
+      { title: "Pride (In the Name of Love)", era: "70s80s" },
+      { title: "With or Without You", era: "90s" },
+      { title: "I Still Haven't Found What I'm Looking For", era: "70s80s" },
+      { title: "Where the Streets Have No Name", era: "70s80s" },
+      { title: "New Year's Day", era: "70s80s" },
+      { title: "One", era: "90s" },
+      { title: "Mysterious Ways", era: "90s" },
+      { title: "Beautiful Day", era: "00s" },
+      { title: "Vertigo", era: "00s" },
+      { title: "Elevation", era: "00s" },
+      { title: "Stuck in a Moment You Can't Get Out Of", era: "00s" },
+      { title: "Bad", era: "70s80s" },
+      { title: "A Sort of Homecoming", era: "70s80s" },
+      { title: "The Fly", era: "90s" },
+      { title: "Zoo Station", era: "90s" },
+      { title: "Even Better Than the Real Thing", era: "90s" },
+      { title: "Stay (Faraway, So Close!)", era: "90s" },
+      { title: "Elevation (Live)", era: "00s" },
+      { title: "Walk On", era: "00s" },
+      { title: "All I Want Is You", era: "70s80s" },
+      { title: "Sometimes You Can't Make It On Your Own", era: "00s" },
+      { title: "Get On Your Boots", era: "10s" },
+      { title: "Invisible", era: "10s" },
+      { title: "The Miracle (of Joey Ramone)", era: "10s" },
+      { title: "Every Breaking Wave", era: "10s" },
+      { title: "Songs of Surrender", era: "10s" },
+      { title: "I Will Follow", era: "70s80s" },
+      { title: "Two Hearts Beat As One", era: "70s80s" },
+      { title: "Desire", era: "70s80s" },
+      { title: "All Because of You", era: "00s" },
+      { title: "Get Out of Your Own Way", era: "10s" },
+      { title: "Lights of Home", era: "10s" },
+      { title: "Red Hill Mining Town", era: "70s80s" },
+      { title: "Who's Gonna Ride Your Wild Horses", era: "90s" },
+      { title: "The Unforgettable Fire", era: "70s80s" },
+      { title: "Stay (Faraway, So Close!)", era: "90s" },
+      { title: "Magnificent", era: "10s" }
+    ];
+
+    // --- Utility: hash a string to a 32-bit integer ---
+    function xmur3(str) {
+      // small, fast string hash to seed PRNG (not cryptographic)
+      for (var i = 0, h = 1779033703 ^ str.length; i < str.length; i++) {
+        h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
+        h = (h << 13) | (h >>> 19);
+      }
+      return function() {
+        h = Math.imul(h ^ (h >>> 16), 2246822507);
+        h = Math.imul(h ^ (h >>> 13), 3266489909);
+        return (h ^= h >>> 16) >>> 0;
+      }
+    }
+
+    // --- PRNG: mulberry32 seeded with the above hash ---
+    function mulberry32(a) {
+      return function() {
+        var t = (a += 0x6D2B79F5);
+        t = Math.imul(t ^ (t >>> 15), t | 1);
+        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      }
+    }
+
+    // --- DOM refs ---
+    const dateInput = document.getElementById('date-input');
+    const textInput = document.getElementById('text-input');
+    const generateBtn = document.getElementById('generate');
+    const surpriseBtn = document.getElementById('surprise');
+    const songTitle = document.getElementById('song-title');
+    const songMeta = document.getElementById('song-meta');
+    const bigSeed = document.getElementById('big-seed');
+    const historyEl = document.getElementById('history');
+    const seedPreview = document.getElementById('seed-preview');
+    const youtubeLink = document.getElementById('youtube-link');
+    const copyBtn = document.getElementById('copy');
+    const playBtn = document.getElementById('play');
+    const anotherBtn = document.getElementById('another');
+    const eraSelect = document.getElementById('era');
+
+    let lastPick = null;
+    let lastSeedStr = "";
+
+    // --- pick a song given a seed string and optional era filter ---
+    function pickSong(seedStr, step = 0, era = 'any') {
+      // show the seed preview
+      seedPreview.textContent = seedStr || "—";
+
+      const seedFn = xmur3(seedStr || ""); // returns 32-bit int generator
+      const seedInt = seedFn();
+      const prng = mulberry32(seedInt + step);
+
+      // filter by era if requested
+      let pool = u2Songs;
+      if (era !== 'any') {
+        pool = u2Songs.filter(s => s.era === era);
+        if (pool.length === 0) pool = u2Songs; // fallback to all
+      }
+
+      const idx = Math.floor(prng() * pool.length);
+      const chosen = pool[idx];
+      const meta = {
+        index: idx,
+        seedInt,
+        step,
+        poolSize: pool.length
+      };
+
+      return { chosen, meta, seedStr };
+    }
+
+    function renderPick(pick) {
+      if (!pick) return;
+      const { chosen, meta, seedStr } = pick;
+      songTitle.textContent = chosen.title;
+      songMeta.textContent = `Seed int: ${meta.seedInt} · Index: ${meta.index} · Pool: ${meta.poolSize} · Step: ${meta.step}`;
+      bigSeed.textContent = `raw seed: ${seedStr}`;
+      lastPick = pick;
+      lastSeedStr = seedStr;
+
+      // set youtube search link for the song
+      const q = encodeURIComponent("U2 " + chosen.title);
+      youtubeLink.href = `https://www.youtube.com/results?search_query=${q}`;
+      youtubeLink.textContent = `Search YouTube: "${chosen.title}"`;
+
+      // add to recent picks
+      const chip = document.createElement('button');
+      chip.className = 'chip';
+      chip.textContent = chosen.title;
+      chip.title = `Seed: ${seedStr}`;
+      chip.onclick = () => {
+        // clicking recent pick loads it back into preview and sets UI values
+        seedPreview.textContent = seedStr;
+        textInput.value = seedStr;
+        dateInput.value = "";
+        eraSelect.value = 'any';
+        const restored = pickSong(seedStr, meta.step, 'any');
+        renderPick(restored);
+      };
+      historyEl.prepend(chip);
+      // keep only last 8
+      while (historyEl.children.length > 8) historyEl.removeChild(historyEl.lastChild);
+    }
+
+    // --- event handlers ---
+    generateBtn.addEventListener('click', () => {
+      // priority: if date selected, use that; otherwise use text input; otherwise use empty
+      const dateVal = dateInput.value;
+      const textVal = textInput.value.trim();
+      const seedStr = dateVal || textVal || "";
+      const era = eraSelect.value;
+      const pick = pickSong(seedStr, 0, era);
+      renderPick(pick);
+    });
+
+    surpriseBtn.addEventListener('click', () => {
+      // generate a random seed (uses crypto where available), show deterministic pick for that random seed
+      let randSeed = "";
+      try {
+        const arr = new Uint8Array(8);
+        crypto.getRandomValues(arr);
+        randSeed = Array.from(arr).map(n => n.toString(16).padStart(2,'0')).join('');
+      } catch (e) {
+        randSeed = Math.random().toString(36).slice(2,12);
+      }
+      textInput.value = randSeed;
+      dateInput.value = "";
+      const pick = pickSong(randSeed, 0, eraSelect.value);
+      renderPick(pick);
+    });
+
+    copyBtn.addEventListener('click', async () => {
+      if (!lastPick) return;
+      const txt = `${lastPick.chosen.title} — seed: ${lastPick.seedStr}`;
+      try {
+        await navigator.clipboard.writeText(txt);
+        copyBtn.textContent = 'Copied!';
+        setTimeout(()=>copyBtn.textContent = 'Copy song', 1200);
+      } catch (e) {
+        // fallback
+        alert('Copy this: ' + txt);
+      }
+    });
+
+    playBtn.addEventListener('click', () => {
+      if (!lastPick) {
+        alert('Generate a song first.');
+        return;
+      }
+      window.open(youtubeLink.href, '_blank', 'noopener');
+    });
+
+    anotherBtn.addEventListener('click', () => {
+      if (!lastPick) return;
+      // same seed but step increments to pick a different index deterministically
+      const nextStep = lastPick.meta.step + 1;
+      const pick = pickSong(lastSeedStr, nextStep, eraSelect.value);
+      renderPick(pick);
+    });
+
+    // allow pressing Enter in text field to generate
+    textInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') generateBtn.click();
+    });
+    dateInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') generateBtn.click();
+    });
+
+    // initial friendly default
+    (() => {
+      const today = new Date();
+      const iso = today.toISOString().slice(0,10);
+      dateInput.value = "";
+      textInput.placeholder = "Try: your birthday (choose date) or type something like 'Dec 31 1980' or your name";
+      songTitle.textContent = "Try entering your birthday or click Surprise me!";
+      seedPreview.textContent = "—";
+    })();
+  </script>
+</body>
+</html>
